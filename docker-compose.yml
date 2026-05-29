@@ -1,10 +1,7 @@
 # Reranker: FastAPI + sentence-transformers + BAAI/bge-reranker-v2-m3 (cross-encoder).
-# ~1 ГБ VRAM в fp16. Принимает пары (query, passage) и возвращает sigmoid-scores.
+# Запускается на GPU 1 — embedder занимает GPU 0.
 #
-# Первый запуск (сборка образа + скачивание весов): ~8–12 минут.
-# Последующие запуски (веса из ~/models-cache): ~1 минута.
-#
-# Запуск: docker compose up -d --build
+# Запуск: docker compose up -d
 # Логи:   docker compose logs -f
 # Стоп:   docker compose down
 
@@ -14,19 +11,21 @@ services:
     container_name: rerank-svc
     restart: unless-stopped
 
+    environment:
+      # Явно направляем на GPU 1, чтобы не конкурировать с embedder
+      CUDA_VISIBLE_DEVICES: "1"
+
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              count: 1
+              count: all
               capabilities: [gpu]
 
-    # Слушаем только loopback VM — наружу через SSH-туннель с Mac.
     ports:
       - "127.0.0.1:8001:8001"
 
-    # Общий с embedder том под HF-кэш — веса не дублируются на диске.
     volumes:
       - ${HOME}/models-cache:/data
 

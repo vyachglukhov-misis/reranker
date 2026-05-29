@@ -9,10 +9,8 @@ from app.schemas import RerankRequest, RerankResponse
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Стартап: прогреваем модель, чтобы первый запрос не ждал загрузки весов.
     get_reranker()
     yield
-    # Шатдаун: PyTorch освобождает VRAM при завершении процесса.
 
 
 app = FastAPI(
@@ -35,18 +33,13 @@ async def rerank(req: RerankRequest):
 
     pairs = [[req.query, doc] for doc in req.documents]
 
-    raw_scores: np.ndarray = reranker.predict(
+    # CrossEncoder.predict() в ST 3.0.1 уже применяет sigmoid внутри
+    # для моделей с num_labels=1 (bge-reranker-v2-m3). Не применяем sigmoid повторно.
+    scores: np.ndarray = reranker.predict(
         pairs,
         batch_size=8,
         convert_to_numpy=True,
         show_progress_bar=False,
     )
 
-    if req.normalize:
-        # Sigmoid: 1 / (1 + e^-x) → scores в [0, 1]
-        scores = 1.0 / (1.0 + np.exp(-raw_scores))
-    else:
-        scores = raw_scores
-
-    # Порядок scores совпадает с порядком documents — indexer не перекладывает индексы.
     return RerankResponse(scores=scores.tolist())

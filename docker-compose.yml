@@ -1,0 +1,37 @@
+# Reranker: FastAPI + sentence-transformers + BAAI/bge-reranker-v2-m3 (cross-encoder).
+# ~1 ГБ VRAM в fp16. Принимает пары (query, passage) и возвращает sigmoid-scores.
+#
+# Первый запуск (сборка образа + скачивание весов): ~8–12 минут.
+# Последующие запуски (веса из ~/models-cache): ~1 минута.
+#
+# Запуск: docker compose up -d --build
+# Логи:   docker compose logs -f
+# Стоп:   docker compose down
+
+services:
+  reranker:
+    build: .
+    container_name: rerank-svc
+    restart: unless-stopped
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+    # Слушаем только loopback VM — наружу через SSH-туннель с Mac.
+    ports:
+      - "127.0.0.1:8081:8000"
+
+    # Общий с embedder том под HF-кэш — веса не дублируются на диске.
+    volumes:
+      - ${HOME}/models-cache:/data
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      retries: 5
+      start_period: 60s

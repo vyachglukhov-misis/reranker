@@ -1,7 +1,11 @@
-# sentence-transformers >= 3.0 поддерживает bge-reranker-v2-m3 нативно через CrossEncoder.
-# torch и transformers идут из базового pytorch/pytorch:2.6.0-cuda12.4-cudnn9 образа —
-# НЕ дублировать здесь, иначе pip переустановит CPU-версию и сломает GPU.
-sentence-transformers>=3.0
+# Закреплённая пара версий, проверенная с bge-reranker-v2-m3 + XLM-RoBERTa.
+# Новый transformers (конец 2025) сломал forward у XLM-RoBERTa в связке с CrossEncoder ST 5.x:
+# input_ids приходит как BatchEncoding вместо тензора → AttributeError в .ne().
+# torch и cuda идут из базового pytorch/pytorch:2.6.0-cuda12.4-cudnn9 образа.
+# bge-reranker-v2-m3 в safetensors формате — torch.load не используется,
+# CVE-2025-32434 не актуален, старый transformers безопасен.
+sentence-transformers==3.0.1
+transformers==4.44.2
 fastapi>=0.110
 uvicorn[standard]>=0.27
 pydantic>=2.0
